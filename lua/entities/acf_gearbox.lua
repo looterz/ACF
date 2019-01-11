@@ -115,14 +115,15 @@ if CLIENT then
 				acfmenupanel.CData.ShiftGenPanel = vgui.Create( "DPanel" )
 					acfmenupanel.CData.ShiftGenPanel:SetPaintBackground( false )
 					acfmenupanel.CData.ShiftGenPanel:DockPadding( 4, 0, 4, 0 )
-					acfmenupanel.CData.ShiftGenPanel:SetTall( 40 )
+					acfmenupanel.CData.ShiftGenPanel:SetTall( 60 )
 					acfmenupanel.CData.ShiftGenPanel:SizeToContentsX()
 					acfmenupanel.CData.ShiftGenPanel.Gears = Table.gears
 					
 				acfmenupanel.CData.ShiftGenPanel.Calc = acfmenupanel.CData.ShiftGenPanel:Add( "DButton" )
 					acfmenupanel.CData.ShiftGenPanel.Calc:SetText( "Calculate" )
-					acfmenupanel.CData.ShiftGenPanel.Calc:Dock( RIGHT )
-					acfmenupanel.CData.ShiftGenPanel.Calc:SetWide( 80 )
+					acfmenupanel.CData.ShiftGenPanel.Calc:Dock( BOTTOM )
+					--acfmenupanel.CData.ShiftGenPanel.Calc:SetWide( 80 )
+					acfmenupanel.CData.ShiftGenPanel.Calc:SetTall( 20 )
 					acfmenupanel.CData.ShiftGenPanel.Calc.DoClick = function()
 						local str, factor = acfmenupanel.CData.UnitsInput:GetSelected()
 						local mul = math.pi * acfmenupanel.CData.ShiftGenPanel.RPM:GetValue() * acfmenupanel.CData.ShiftGenPanel.Ratio:GetValue() * acfmenupanel.CData[10]:GetValue() * acfmenupanel.CData.ShiftGenPanel.Wheel:GetValue() / (60 * factor)
@@ -137,7 +138,7 @@ if CLIENT then
 						acfmenupanel.CData.WheelPanel:SetPaintBackground( false )
 						acfmenupanel.CData.WheelPanel:DockMargin( 4, 0, 4, 0 )
 						acfmenupanel.CData.WheelPanel:Dock( RIGHT )
-						acfmenupanel.CData.WheelPanel:SetWide( 80 )
+						acfmenupanel.CData.WheelPanel:SetWide( 76 )
 						acfmenupanel.CData.WheelPanel:SetTooltip( "If you use default spherical settings, add 0.5 to your wheel diameter.\nFor treaded vehicles, use the diameter of road wheels, not drive wheels." )
 
 						acfmenupanel.CData.ShiftGenPanel.WheelLabel = acfmenupanel.CData.WheelPanel:Add( "DLabel" )
@@ -157,7 +158,7 @@ if CLIENT then
 						acfmenupanel.CData.RatioPanel:SetPaintBackground( false )
 						acfmenupanel.CData.RatioPanel:DockMargin( 4, 0, 4, 0 )
 						acfmenupanel.CData.RatioPanel:Dock( RIGHT )
-						acfmenupanel.CData.RatioPanel:SetWide( 80 )
+						acfmenupanel.CData.RatioPanel:SetWide( 76 )
 						acfmenupanel.CData.RatioPanel:SetTooltip( "Total ratio is the ratio of all gearboxes (exluding this one) multiplied together.\nFor example, if you use engine to automatic to diffs to wheels, your total ratio would be (diff gear ratio * diff final ratio)." )
 
 						acfmenupanel.CData.ShiftGenPanel.RatioLabel = acfmenupanel.CData.RatioPanel:Add( "DLabel" )
@@ -177,7 +178,7 @@ if CLIENT then
 						acfmenupanel.CData.RPMPanel:SetPaintBackground( false )
 						acfmenupanel.CData.RPMPanel:DockMargin( 4, 0, 4, 0 )
 						acfmenupanel.CData.RPMPanel:Dock( RIGHT )
-						acfmenupanel.CData.RPMPanel:SetWide( 80 )
+						acfmenupanel.CData.RPMPanel:SetWide( 76 )
 						acfmenupanel.CData.RPMPanel:SetTooltip( "Target engine RPM to upshift at." )
 				
 						acfmenupanel.CData.ShiftGenPanel.RPMLabel = acfmenupanel.CData.RPMPanel:Add( "DLabel" )
@@ -422,7 +423,7 @@ function MakeACF_Gearbox(Owner, Pos, Angle, Id, Data1, Data2, Data3, Data4, Data
 	Gearbox.OutL = Gearbox:WorldToLocal(Gearbox:GetAttachment(Gearbox:LookupAttachment( "driveshaftL" )).Pos)
 	Gearbox.OutR = Gearbox:WorldToLocal(Gearbox:GetAttachment(Gearbox:LookupAttachment( "driveshaftR" )).Pos)
 	
-	Owner:AddCount("_acf_gearbox", Gearbox)
+	Owner:AddCount("_acf_misc", Gearbox)
 	Owner:AddCleanup( "acfmenu", Gearbox )
 	
 	Gearbox:ChangeGear(1)
@@ -553,7 +554,11 @@ function ENT:Update( ArgsTable )
 		self.ShiftScale = 1
 	end
 	
-	self:ChangeGear(1)
+	--self:ChangeGear(1) -- fails on updating because func exits on detecting same gear
+	self.Gear = 1
+	self.GearRatio = (self.GearTable[self.Gear] or 0)*self.GearTable.Final
+	self.ChangeFinished = CurTime() + self.SwitchTime
+	self.InGear = false
 	
 	if self.Dual or self.DoubleDiff then
 		self:SetBodygroup(1, 1)
@@ -674,20 +679,10 @@ function ENT:CheckLegal()
 	if self:GetPhysicsObject():GetMass() < self.Mass then return false end
 	
 	self.RootParent = nil
-	local rootparent = self:GetParent()
+	-- if not parented then its legal
+	if not IsValid(self:GetParent()) then return true end
 	
-	-- if it's not parented, we're fine
-	if not IsValid( rootparent ) then return true end
-	
-	--find the root parent
-	local depth = 0
-	while rootparent:GetParent():IsValid() and depth<5 do
-		depth = depth + 1
-		rootparent = rootparent:GetParent()
-	end
-	
-	--if there's still more parents, it's not legal
-	if rootparent:GetParent():IsValid() then return false end
+	local rootparent = ACF_GetPhysicalParent(self)
 	
 	--if it's welded, make sure it's welded to root parent
 	if IsValid( constraint.FindConstraintEntity( self, "Weld" ) ) then
@@ -701,7 +696,7 @@ function ENT:CheckLegal()
 			return true
 		end
 	end
-	
+
 	return false
 	
 end
@@ -766,7 +761,7 @@ function ENT:Calc( InputRPM, InputInertia )
 	self:CheckEnts()
 
 	local BoxPhys = self:GetPhysicsObject()
-	local SelfWorld = self:LocalToWorld( BoxPhys:GetAngleVelocity() ) - self:GetPos()
+	local SelfWorld = BoxPhys:LocalToWorldVector( BoxPhys:GetAngleVelocity() )
 	
 	if self.CVT and self.Gear == 1 then
 		if self.CVTRatio and self.CVTRatio > 0 then
@@ -842,8 +837,8 @@ function ENT:CalcWheel( Link, SelfWorld )
 
 	local Wheel = Link.Ent
 	local WheelPhys = Wheel:GetPhysicsObject()
-	local VelDiff = ( Wheel:LocalToWorld( WheelPhys:GetAngleVelocity() ) - Wheel:GetPos() ) - SelfWorld
-	local BaseRPM = VelDiff:Dot( Wheel:LocalToWorld( Link.Axis ) - Wheel:GetPos() )
+	local VelDiff = WheelPhys:LocalToWorldVector( WheelPhys:GetAngleVelocity() ) - SelfWorld
+	local BaseRPM = VelDiff:Dot( WheelPhys:LocalToWorldVector( Link.Axis ) )
 	Link.Vel = BaseRPM
 	
 	if self.GearRatio == 0 then return 0 end
@@ -892,11 +887,10 @@ function ENT:Act( Torque, DeltaTime, MassRatio )
 	else
 		BoxPhys = self:GetPhysicsObject()
 	end
-	
-	if IsValid( BoxPhys ) and ReactTq ~= 0 then	
-		local Force = self:GetForward() * ReactTq * MassRatio - self:GetForward()
-		BoxPhys:ApplyForceOffset( Force * 39.37 * DeltaTime, self:GetPos() + self:GetUp() * -39.37 )
-		BoxPhys:ApplyForceOffset( Force * -39.37 * DeltaTime, self:GetPos() + self:GetUp() * 39.37 )
+
+	if IsValid( BoxPhys ) and ReactTq ~= 0 then
+		local Torque = self:GetRight() * math.Clamp( 2 * math.deg( ReactTq * MassRatio ) * DeltaTime, -500000, 500000 )
+		BoxPhys:ApplyTorqueCenter( Torque )
 	end
 	
 	self.LastActive = CurTime()
@@ -906,20 +900,15 @@ end
 function ENT:ActWheel( Link, Torque, Brake, DeltaTime )
 	
 	local Phys = Link.Ent:GetPhysicsObject()
-	local Pos = Link.Ent:GetPos()
-	local TorqueAxis = Link.Ent:LocalToWorld( Link.Axis ) - Pos
-	local Cross = TorqueAxis:Cross( Vector( TorqueAxis.y, TorqueAxis.z, TorqueAxis.x ) )
-	local TorqueVec = TorqueAxis:Cross( Cross ):GetNormalized()
-	
+	local TorqueAxis = Phys:LocalToWorldVector( Link.Axis )
+
 	local BrakeMult = 0
 	if Brake > 0 then
-		BrakeMult = Link.Vel * Phys:GetInertia() * Brake / 10
+		BrakeMult = Link.Vel * Link.Inertia * Brake / 5
 	end
-	
-	local Force = TorqueVec * Torque * 0.75 + TorqueVec * BrakeMult
-	Phys:ApplyForceOffset( Force * -39.37 * DeltaTime, Pos + Cross * 39.37 )
-	Phys:ApplyForceOffset( Force * 39.37 * DeltaTime, Pos + Cross * -39.37 )
-	
+
+	local Torque = TorqueAxis * math.Clamp( math.deg( -Torque * 1.5 - BrakeMult ) * DeltaTime, -500000, 500000 )
+	Phys:ApplyTorqueCenter( Torque )
 end
 
 function ENT:ChangeGear(value)
@@ -938,15 +927,14 @@ function ENT:ChangeGear(value)
 	
 end
 
+--handles gearing for automatics; 0=neutral, 1=forward autogearing, 2=reverse
 function ENT:ChangeDrive(value)
 
 	local new = math.Clamp(math.floor(value),0,2)
 	if self.Drive == new then return end
 	
 	self.Drive = new
-	if self.Drive == 0 then
-		self:ChangeGear(0)
-	elseif self.Drive == 2 then
+	if self.Drive == 2 then
 		self.Gear = self.Reverse
 		self.GearRatio = (self.GearTable[self.Gear] or 0)*self.GearTable.Final
 		self.ChangeFinished = CurTime() + self.SwitchTime
@@ -956,7 +944,7 @@ function ENT:ChangeDrive(value)
 		self:EmitSound("buttons/lever7.wav",250,100)
 		Wire_TriggerOutput(self, "Ratio", self.GearRatio)
 	else
-		self:ChangeGear(1)
+		self:ChangeGear(self.Drive) --autogearing in :calc will set correct gear
 	end
 	
 end
@@ -998,11 +986,15 @@ function ENT:Link( Target )
 	if self.Owner:GetInfoNum( "ACF_MobilityRopeLinks", 1) == 1 then
 		Rope = constraint.CreateKeyframeRope( OutPosWorld, 1, "cable/cable2", nil, self, OutPos, 0, Target, InPos, 0 )
 	end
+	local Phys = Target:GetPhysicsObject()
+	local Axis = Phys:WorldToLocalVector( self:GetRight() )
+	local Inertia = ( Axis * Phys:GetInertia() ):Length()
 	
 	local Link = {
 		Ent = Target,
 		Side = Side,
-		Axis = Target:WorldToLocal( self:GetRight() + InPosWorld ),
+		Axis = Axis,
+		Inertia = Inertia,
 		Rope = Rope,
 		RopeLen = ( OutPosWorld - InPosWorld ):Length(),
 		Output = OutPos,

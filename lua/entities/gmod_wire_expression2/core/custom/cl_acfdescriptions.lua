@@ -14,10 +14,13 @@ E2Helper.Descriptions["acfUnlinkFrom"] = "Unlink various ACF components."
 E2Helper.Descriptions["acfCapacity"] = "Returns the capacity of an ACF ammo crate or fuel tank."
 E2Helper.Descriptions["acfInfoRestricted"] = "Returns 1 if functions returning sensitive info are restricted to owned props."
 E2Helper.Descriptions["acfLinks"] = "Returns all the entities which are linked to this entity through ACF."
+E2Helper.Descriptions["acfDragDiv"] = "Returns current ACF drag divisor"
 
 --engine
 E2Helper.Descriptions["acfMaxTorque"] = "Returns the maximum torque (in N/m) of an ACF engine."
 E2Helper.Descriptions["acfMaxPower"] = "Returns the maximum power (in kW) of an ACF engine."
+E2Helper.Descriptions["acfMaxTorqueWithFuel"] = "Returns the maximum torque (in N/m) of an ACF engine with fuel linked."
+E2Helper.Descriptions["acfMaxPowerWithFuel"] = "Returns the maximum power (in kW) of an ACF engine with fuel linked."
 E2Helper.Descriptions["acfIdleRPM"] = "Returns the idle RPM of an ACF engine."
 E2Helper.Descriptions["acfPowerbandMin"] = "Returns the powerband minimum of an ACF engine."
 E2Helper.Descriptions["acfPowerbandMax"] = "Returns the powerband maximum of an ACF engine."
@@ -87,6 +90,7 @@ E2Helper.Descriptions["acfPropHealthMax"] = "Returns the max health of an entity
 E2Helper.Descriptions["acfPropArmor"] = "Returns the current armor of an entity."
 E2Helper.Descriptions["acfPropArmorMax"] = "Returns the max armor of an entity."
 E2Helper.Descriptions["acfPropDuctility"] = "Returns the ductility of an entity."
+E2Helper.Descriptions["acfEffectiveArmor"] = "Returns the effective armor of a given nominal armor value and angle, or from a trace hitting an entity."
 
 --fuel
 E2Helper.Descriptions["acfFuel"] = "Returns the remaining liters of fuel or kilowatt hours in an ACF fuel tank, or available to an engine."

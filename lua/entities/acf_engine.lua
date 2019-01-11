@@ -201,7 +201,7 @@ function MakeACF_Engine(Owner, Pos, Angle, Id)
 	Engine:SetNWString( "WireName", Lookup.name )
 	Engine:UpdateOverlayText()
 	
-	Owner:AddCount("_acf_engine", Engine)
+	Owner:AddCount("_acf_misc", Engine)
 	Owner:AddCleanup( "acfmenu", Engine )
 	
 	ACF_Activate( Engine, 0 )
@@ -450,21 +450,11 @@ function ENT:CheckLegal()
 	-- make sure weight is not below stock
 	if self:GetPhysicsObject():GetMass() < self.Weight then return false end
 	
-	local rootparent = self:GetParent()
-	
 	-- if it's not parented we're fine
-	if not IsValid( rootparent ) then return true end
+	if not IsValid( self:GetParent() ) then return true end
 	
-	--find the root parent
-	local depth = 0
-	while rootparent:GetParent():IsValid() and depth<5 do
-		depth = depth + 1
-		rootparent = rootparent:GetParent()
-	end
-	
-	--if there's still more parents, it's not legal
-	if rootparent:GetParent():IsValid() then return false end
-	
+	local rootparent = ACF_GetPhysicalParent(self)
+
 	--make sure it's welded to root parent
 	for k, v in pairs( constraint.FindConstraints( self, "Weld" ) ) do
 		if v.Ent1 == rootparent or v.Ent2 == rootparent then return true end

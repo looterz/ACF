@@ -26,7 +26,7 @@ function Round.convert( Crate, PlayerData )
 	
 	if not PlayerData.PropLength then PlayerData.PropLength = 0 end
 	if not PlayerData.ProjLength then PlayerData.ProjLength = 0 end
-	if not PlayerData.Data5 then PlayerData.Data5 = 0 end
+	PlayerData.Data5 = math.max(PlayerData.Data5 or 0, 0)
 	if not PlayerData.Data10 then PlayerData.Data10 = 0 end
 	
 	PlayerData, Data, ServerData, GUIData = ACF_RoundBaseGunpowder( PlayerData, Data, ServerData, GUIData )
@@ -51,7 +51,7 @@ function Round.convert( Crate, PlayerData )
 	Data.DragCoef = ((Data.FrAera/10000)/Data.ProjMass)
 	Data.LimitVel = 700										--Most efficient penetration speed in m/s
 	Data.KETransfert = 0.1									--Kinetic energy transfert to the target for movement purposes
-	Data.Ricochet = 75										--Base ricochet angle
+	Data.Ricochet = 65										--Base ricochet angle
 	
 	Data.BoomPower = Data.PropMass + Data.FillerMass
 

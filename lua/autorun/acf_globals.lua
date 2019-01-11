@@ -2,7 +2,7 @@ ACF = {}
 ACF.AmmoTypes = {}
 ACF.MenuFunc = {}
 ACF.AmmoBlacklist = {}
-ACF.Version = 571 -- REMEMBER TO CHANGE THIS FOR GODS SAKE, OMFG!!!!!!! -wrex   Update the changelog too! -Ferv
+ACF.Version = 633 -- REMEMBER TO CHANGE THIS FOR GODS SAKE, OMFG!!!!!!! -wrex   Update the changelog too! -Ferv
 ACF.CurrentVersion = 0 -- just defining a variable, do not change
 
 ACF.Year = 1945
@@ -12,10 +12,11 @@ ACF.PartialPenPenalty = 5 --Exponent for the damage penalty for partial penetrat
 ACF.PenAreaMod = 0.85
 ACF.KinFudgeFactor = 2.1	--True kinetic would be 2, over that it's speed biaised, below it's mass biaised
 ACF.KEtoRHA = 0.25		--Empirical conversion from (kinetic energy in KJ)/(Aera in Cm2) to RHA penetration
-ACF.GroundtoRHA = 0.05		--How much mm of steel is a mm of ground worth (Real soil is about 0.15
+ACF.GroundtoRHA = 0.15		--How much mm of steel is a mm of ground worth (Real soil is about 0.15)
 ACF.KEtoSpall = 1
 ACF.AmmoMod = 0.6		-- Ammo modifier. 1 is 1x the amount of ammo
 ACF.ArmorMod = 1
+ACF.SlopeEffectFactor = 1.1	-- Sloped armor effectiveness: armor / cos(angle)^factor
 ACF.Spalling = 0
 ACF.GunfireEnabled = true
 ACF.MeshCalcEnabled = false
@@ -26,12 +27,13 @@ ACF.HEFrag = 1500		--Mean fragment number for equal weight TNT and casing
 ACF.HEBlastPen = 0.4	--Blast penetration exponent based of HE power
 ACF.HEFeatherExp = 0.5 	--exponent applied to HE dist/maxdist feathering, <1 will increasingly bias toward max damage until sharp falloff at outer edge of range
 
-ACF.HEATMVScale = 0.74	--Filler KE to HEAT slug KE conversion expotential
-ACF.HEATMulAmmo = 16.5 		--HEAT slug damage multiplier; 13.2x roughly equal to AP damage
-ACF.HEATMulFuel = 8.25		--needs less multiplier, much less health than ammo
-ACF.HEATMulEngine = 8.25	--likewise
+ACF.HEATMVScale = 0.75	--Filler KE to HEAT slug KE conversion expotential
+ACF.HEATMulAmmo = 30 		--HEAT slug damage multiplier; 13.2x roughly equal to AP damage
+ACF.HEATMulFuel = 4 		--needs less multiplier, much less health than ammo
+ACF.HEATMulEngine = 10	--likewise
+ACF.HEATPenLayerMul = 0.75	--HEAT base energy multiplier
 
-ACF.DragDiv = 80		--Drag fudge factor
+ACF.DragDiv = 40		--Drag fudge factor
 ACF.VelScale = 1		--Scale factor for the shell velocities in the game world
 -- local PhysEnv = physenv.GetPerformanceSettings()
 ACF.PhysMaxVel = 4000
@@ -43,9 +45,11 @@ ACF.MVScale = 0.5  --Propellant to MV convertion expotential
 ACF.PDensity = 1.6	--Gun propellant density (Real powders go from 0.7 to 1.6, i'm using higher densities to simulate case bottlenecking)
 
 ACF.TorqueBoost = 1.25 --torque multiplier from using fuel
-ACF.FuelRate = 5.0  --multiplier for fuel usage, 1.0 is approx real world
+ACF.FuelRate = 5  --multiplier for fuel usage, 1.0 is approx real world
 ACF.ElecRate = 1.5 --multiplier for electrics
-ACF.TankVolumeMul = 1.0 -- multiplier for fuel tank volume
+ACF.TankVolumeMul = 0.5 -- multiplier for fuel tank capacity, 1.0 is approx real world
+
+
 
 ACF.FuelDensity = { --kg/liter
 	Diesel = 0.832,
@@ -99,7 +103,7 @@ if file.Exists("acf/shared/acf_userconfig.lua", "LUA") then
 end
 
 
-CreateConVar('sbox_max_acf_gun', 12)
+CreateConVar('sbox_max_acf_gun', 16)
 CreateConVar('sbox_max_acf_smokelauncher', 10)
 CreateConVar('sbox_max_acf_ammo', 32)
 CreateConVar('sbox_max_acf_misc', 32)
@@ -222,6 +226,12 @@ timer.Simple( 0, function()
 	end
 end)
 
+--Stupid workaround red added to precache timescaling.
+hook.Add( "Think", "Update ACF Internal Clock", function()
+	ACF.CurTime = CurTime()
+    ACF.SysTime = SysTime()
+end )
+
 -- changes here will be automatically reflected in the armor properties tool
 function ACF_CalcArmor( Area, Ductility, Mass )
 
@@ -255,6 +265,28 @@ function ACF_Kinetic( Speed , Mass, LimitVel )
 	return Energy
 end
 
+-- returns last parent in chain, which has physics
+function ACF_GetPhysicalParent( obj )
+	if not IsValid(obj) then return nil end
+	
+	--check for fresh cached parent
+	if obj.acfphysparent and ACF.CurTime < obj.acfphysstale then
+		return obj.acfphysparent
+	end
+	
+	local Parent = obj
+	
+	while Parent:GetParent():IsValid() do
+		Parent = Parent:GetParent()
+	end
+	
+	--update cached parent
+	obj.acfphysparent = Parent
+	obj.acfphysstale = ACF.CurTime + 10 --when cached parent is considered stale and needs updating
+	
+	return Parent
+end
+
 -- Global Ratio Setting Function
 function ACF_CalcMassRatio( obj, pwr )
 	if not IsValid(obj) then return end
@@ -264,14 +296,8 @@ function ACF_CalcMassRatio( obj, pwr )
 	local fuel = 0
 
 	-- find the physical parent highest up the chain
-	local Parent = obj
-	local depth = 0
-
-	while Parent:GetParent():IsValid() and depth<6 do
-		Parent = Parent:GetParent()
-		depth = depth + 1
-	end
-
+	local Parent = ACF_GetPhysicalParent(obj)
+	
 	-- get the shit that is physically attached to the vehicle
 	local PhysEnts = ACF_GetAllPhysicalConstraints( Parent )
 
@@ -312,7 +338,7 @@ function ACF_CalcMassRatio( obj, pwr )
 	for k, v in pairs( AllEnts ) do
 		v.acfphystotal = PhysMass
 		v.acftotal = Mass
-		v.acflastupdatemass = CurTime()
+		v.acflastupdatemass = ACF.CurTime
 	end
 
 	if pwr then return { Power = power, Fuel = fuel } end

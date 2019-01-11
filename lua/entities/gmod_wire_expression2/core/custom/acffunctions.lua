@@ -43,6 +43,22 @@ local function restrictInfo(ply, ent)
 	return false
 end
 
+local function getMaxTorque(ent)
+	if not isEngine(ent) then return 0 end
+	return ent.PeakTorque or 0
+end
+
+local function getMaxPower(ent)
+	if not isEngine(ent) then return 0 end
+	local peakpower
+	if ent.iselec then
+		peakpower = math.floor(ent.PeakTorque * ent.LimitRPM / (38195.2)) --(4*9548.8)
+	else
+		peakpower = math.floor(ent.PeakTorque * ent.PeakMaxRPM / 9548.8)
+	end
+	return peakpower or 0
+end
+
 local function isLinkableACFEnt(ent)
 
 	if not validPhysics(ent) then return false end
@@ -105,7 +121,7 @@ __e2setcost( 5 )
 --returns 1 if hitpos is on a clipped part of prop
 e2function number entity:acfHitClip( vector hitpos )
 	if not isOwner(self, this) then return 0 end
-	if ACF_CheckClips(nil, nil, this, hitpos) then return 1 else return 0 end
+	if ACF_CheckClips(this, hitpos) then return 1 else return 0 end
 end
 
 __e2setcost( 1 )
@@ -240,6 +256,10 @@ e2function number entity:acfUnlinkFrom(entity target, number notify)
     return success and 1 or 0
 end
 
+--returns current acf dragdivisor
+e2function number acfDragDiv()
+	return ACF.DragDiv
+end
 
 -- [ Engine Functions ] --
 
@@ -251,23 +271,34 @@ e2function number entity:acfIsEngine()
 	if isEngine(this) then return 1 else return 0 end
 end
 
+-- Returns 1 if an ACF engine is electric
+e2function number entity:acfIsElectric()
+	if ( this.iselec == true ) then return 1 else return 0 end
+end
+
 -- Returns the torque in N/m of an ACF engine
 e2function number entity:acfMaxTorque()
-	if not isEngine(this) then return 0 end
-	return this.PeakTorque or 0
+	return getMaxTorque(this)
 end
 
 -- Returns the power in kW of an ACF engine
 e2function number entity:acfMaxPower()
-	if not isEngine(this) then return 0 end
-	local peakpower
-	if this.iselec then
-		peakpower = math.floor(this.PeakTorque * this.LimitRPM / (4*9548.8))
-	else
-		peakpower = math.floor(this.PeakTorque * this.PeakMaxRPM / 9548.8)
-	end
-	return peakpower or 0
+	return getMaxPower(this)
 end
+
+-- Same as the two above just with fuel duhhh//
+
+e2function number entity:acfMaxTorqueWithFuel()
+	return getMaxTorque(this)*ACF.TorqueBoost or 0
+end
+
+-- Detailed explanation of this function
+
+e2function number entity:acfMaxPowerWithFuel()
+	return getMaxPower(this)*ACF.TorqueBoost or 0
+end
+
+--//
 
 -- Returns the idle rpm of an ACF engine
 e2function number entity:acfIdleRPM()
@@ -687,7 +718,7 @@ end
 e2function string entity:acfRoundType() --cartridge?
 	if not isAmmo(this) then return "" end
 	if restrictInfo(self, this) then return "" end
-	return this.RoundId or ""
+	return this.RoundType or ""
 end
 
 -- Returns the type of ammo in a crate or gun
@@ -780,7 +811,14 @@ end
 -- [ Armor Functions ] --
 
 
-__e2setcost( 10 )
+__e2setcost( 1 )
+
+-- Returns the effective armor given an armor value and hit angle
+e2function number acfEffectiveArmor(number Armor, number Angle)
+	return math.Round(Armor/math.abs(math.cos(math.rad(math.min(Angle,89.999)))),1)
+end
+
+__e2setcost( 5 )
 
 -- Returns the current health of an entity
 e2function number entity:acfPropHealth()
@@ -822,6 +860,14 @@ e2function number entity:acfPropDuctility()
 	return (this.ACF.Ductility or 0)*100
 end
 
+-- Returns the effective armor from a trace hitting a prop
+e2function number ranger:acfEffectiveArmor()
+	if not (this and validPhysics(this.Entity)) then return 0 end
+	if restrictInfo(self, this.Entity) then return 0 end
+	if not ACF_Check(this.Entity) then return 0 end
+	return math.Round(this.Entity.ACF.Armour/math.abs( math.cos(math.rad(ACF_GetHitAngle( this.HitNormal , this.HitPos-this.StartPos )))),1)
+end
+
 
 -- [ Fuel Functions ] --
 
@@ -835,7 +881,7 @@ end
 
 -- Returns 1 if the current engine requires fuel to run
 e2function number entity:acfFuelRequired()
-	if not isFuel(this) then return 0 end
+	if not isEngine(this) then return 0 end
 	if restrictInfo(self, this) then return 0 end
 	return (this.RequiresFuel and 1) or 0
 end
@@ -914,7 +960,7 @@ e2function number entity:acfFuelUse()
 		Consumption = 60 * (this.Torque * this.FlyRPM / 9548.8) * this.FuelUse
 	else
 		local Load = 0.3 + this.Throttle * 0.7
-		Consumption = 60 * Load * this.FuelUse * (this.FlyRPM / this.PeakKwRPM) / ACF.FuelDensity[tank.FuelType]
+		Consumption = 60 * Load * this.FuelUse * (this.FlyRPM / this.PeakKwRPM) / ACF.FuelDensity[Tank.FuelType]
 	end
 	return math.Round(Consumption, 3)
 end
@@ -941,3 +987,5 @@ e2function number entity:acfPeakFuelUse()
 	end
 	return math.Round(Consumption, 3)
 end
+
+
