@@ -2,7 +2,7 @@ ACF = {}
 ACF.AmmoTypes = {}
 ACF.MenuFunc = {}
 ACF.AmmoBlacklist = {}
-ACF.Version = 637 -- REMEMBER TO CHANGE THIS FOR GODS SAKE, OMFG!!!!!!! -wrex   Update the changelog too! -Ferv
+ACF.Version = 643 -- REMEMBER TO CHANGE THIS FOR GODS SAKE, OMFG!!!!!!! -wrex   Update the changelog too! -Ferv
 ACF.CurrentVersion = 0 -- just defining a variable, do not change
 
 ACF.Year = 1945
@@ -98,6 +98,7 @@ ACF.GunInaccuracyBias = 2  -- Higher numbers make shots more likely to be inaccu
 
 ACF.EnableDefaultDP = false -- Enable the inbuilt damage protection system.
 
+ACF.EnableKillicons = true -- Enable killicons overwriting.
 
 if file.Exists("acf/shared/acf_userconfig.lua", "LUA") then
 	include("acf/shared/acf_userconfig.lua")
@@ -144,19 +145,7 @@ elseif CLIENT then
 		include("acf/client/cl_acfpermission.lua")
 		include("acf/client/gui/cl_acfsetpermission.lua")
 	end
-
-	killicon.Add( "acf_AC", "HUD/killicons/acf_AC", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_AL", "HUD/killicons/acf_AL", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_C", "HUD/killicons/acf_C", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_GL", "HUD/killicons/acf_GL", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_HMG", "HUD/killicons/acf_HMG", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_HW", "HUD/killicons/acf_HW", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_MG", "HUD/killicons/acf_MG", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_MO", "HUD/killicons/acf_MO", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_RAC", "HUD/killicons/acf_RAC", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_SA", "HUD/killicons/acf_SA", Color( 200, 200, 48, 255 ) )
-	killicon.Add( "acf_ammo", "HUD/killicons/acf_ammo", Color( 200, 200, 48, 255 ) )
-
+	
 	CreateConVar("acf_cl_particlemul", 1)
 	CreateClientConVar("ACF_MobilityRopeLinks", "1", true, true)
 
@@ -492,6 +481,7 @@ else
 	end
 	net.Receive("acf_smokewind", recvSmokeWind)
 end
+<<<<<<< HEAD
 
 /*
 ONE HUGE HACK to get good killicons.
@@ -569,3 +559,5 @@ if CLIENT then
 	end
 end
 */
+=======
+>>>>>>> upstream/master
